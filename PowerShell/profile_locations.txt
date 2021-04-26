@@ -1,0 +1,3 @@
+Profile locations:
+    Windows: $home\documents\PowerShell\Profile.ps1
+    Linux: ~\.config\powershell\Microsoft.PowerShell_profile.ps1
