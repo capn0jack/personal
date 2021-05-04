@@ -1,0 +1,3 @@
+snap find aws
+
+/snap/powershell/160/opt/powershell/pwsh
