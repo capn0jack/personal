@@ -1,0 +1,52 @@
+Add new VPC route to OpenVPN
+add environment.env.ts* file to frontend
+add env to airbrake config, handler.php
+
+Create airbrake projects for:
+Fe (configure in environment.env.ts*)
+api
+sms
+
+create ionic app/id (configure in environment.env.ts*)
+We're actually using the same values everywhere right now, but eventually that will change.
+
+create onsignal app/id
+(configure in environment.env.ts*)
+
+*One of the many sucky things about this is that all that stuff has to be done ahead of time in env.env.ts, but the authClientSecrets can't be done until the apps are up.
+
+Create S3 and SQS queues, buckets and users.
+
+Create sparkpost domain and api key.
+
+Create the Help Scout stuff.
+    mailbox
+    user
+    create app, that's where the app id and secret come from
+    mailbox id (comes out of the URL for the mailbox on the HS site)
+
+create nexmo information
+
+create pusher information
+
+set Hostname
+directory authentication
+time sync
+all sudo w/o passwd
+
+On builder:
+move existing dokku and semaphore user keys to old_deleteme directory
+create new dokku user keys (id_rsa)
+create new semaphore user keys (semaphore-env)
+sudo dokku ssh-keys:add semaphore_env /home/dokku/.ssh/id_rsa_semaphore.pub
+remove the rest of the entries from dokku's authorized_keys
+
+
+SSH to target with old dokku key
+Add new dokku key to authorized_keys and comment out the old one
+
+upload semaphore private key to  semaphore as semaphore-ssh-env
+document semaphore keys
+
+create my user
+set my user's shell
