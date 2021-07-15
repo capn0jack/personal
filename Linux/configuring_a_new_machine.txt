@@ -1,3 +1,0 @@
-set Hostname
-directory authentication
-time sync
