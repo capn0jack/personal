@@ -1,0 +1,16 @@
+---
+schemaVersion: "2.2"
+description: "Fixes the borked Nginx Logrotate config.  Not intended to be used long-term."
+mainSteps:
+- action: "aws:runShellScript"
+  name: "runShellScript"
+  inputs:
+    runCommand:
+    - |+
+      #!/bin/bash
+      rm /etc/passwd.bak
+      rm /etc/shells.bak
+      cp /etc/passwd /etc/passwd.bak
+      cp /etc/shells /etc/shells.bak
+      sed -i "s%/snap/powershell/160%/snap/powershell/current%g" /etc/shells
+      sed -i "s%/snap/powershell/160%/snap/powershell/current%g" /etc/passwd

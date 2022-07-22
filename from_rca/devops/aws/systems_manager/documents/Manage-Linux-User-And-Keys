@@ -1,0 +1,78 @@
+description: |-
+  # Manage Linux User And Keys
+
+  Use this automation to create/delete a Linux user and update the associated SSH keys
+schemaVersion: '0.3'
+assumeRole: 'arn:aws:iam::729507891944:role/Automation-ManageLinuxUserAndKeys'
+parameters:
+  InstanceID:
+    type: String
+    description: Instance being targeted
+  Action:
+    type: String
+    description: 'Action to perform (Create, Update, Delete)'
+  Username:
+    type: String
+    description: Linux username
+  Keys:
+    type: String
+    description: A list of SSH keys
+    default: ''
+mainSteps:
+  - name: IdentifyAction
+    action: 'aws:branch'
+    inputs:
+      Choices:
+        - NextStep: CreateUser
+          Variable: '{{Action}}'
+          StringEquals: Create
+        - NextStep: UpdateKeys
+          Variable: '{{Action}}'
+          StringEquals: Update
+        - NextStep: DeleteUser
+          Variable: '{{Action}}'
+          StringEquals: Delete
+  - name: CreateUser
+    action: 'aws:runCommand'
+    inputs:
+      DocumentName: AWS-RunShellScript
+      InstanceIds:
+        - '{{ InstanceID }}'
+      Parameters:
+        commands:
+          - 'mkdir -p /home/{{Username}}/.ssh'
+          - 'touch /home/{{Username}}/.ssh/authorized_keys'
+          - 'useradd -d /home/{{Username}} {{Username}}'
+          - 'chsh -s /bin/bash {{Username}}'
+          - 'chown -R {{Username}}:{{Username}} /home/{{Username}}/'
+          - 'chown {{Username}}:{{Username}} /home/{{Username}}'
+          - 'chmod 700 /home/{{Username}}/.ssh'
+          - 'chmod 644 /home/{{Username}}/.ssh/authorized_keys'
+          - 'usermod -aG sudo {{Username}}'
+          - 'if [ $(getent group dokku) ]; then usermod -aG dokku {{Username}}; fi'
+    isEnd: false
+    nextStep: UpdateKeys
+  - name: DeleteUser
+    action: 'aws:runCommand'
+    timeoutSeconds: 60
+    inputs:
+      DocumentName: AWS-RunShellScript
+      InstanceIds:
+        - '{{ InstanceID }}'
+      Parameters:
+        commands:
+          - 'deluser --remove-home {{Username}}'
+          - 'if [ $(getent group {{Username}}) ]; then delgroup {{Username}}; fi'
+          - '#rm -fr /etc/sudoers.d/sudoer_{{Username}}'
+    isEnd: true
+  - name: UpdateKeys
+    action: 'aws:runCommand'
+    inputs:
+      DocumentName: AWS-RunShellScript
+      InstanceIds:
+        - '{{ InstanceID }}'
+      Parameters:
+        commands:
+          - 'truncate -s 0 /home/{{Username}}/.ssh/authorized_keys'
+          - 'sudo -u {{Username}} echo "{{Keys}}" >> /home/{{Username}}/.ssh/authorized_keys'
+    isEnd: true

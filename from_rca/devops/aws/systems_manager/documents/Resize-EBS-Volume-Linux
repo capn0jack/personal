@@ -1,0 +1,112 @@
+description: |-
+  # Resize EBS Volume and Linux Filesystem
+
+  1. Executes EC2 modify volume request to increase size of EBS volume
+  2. Resizes filesystem via resize2fs or growpart command
+
+  **Note: AWS currently allows an EBS volume to be modified every 6 hours**
+schemaVersion: '0.3'
+assumeRole: 'arn:aws:iam::729507891944:role/Automation-Resize-EBS-Volume-Linux'
+parameters:
+  VolumeId:
+    type: String
+    description: Volume to be resized
+  Device:
+    type: String
+    description: 'Filesystem device name, e.g. /dev/xvdf'
+  Size:
+    type: Integer
+    description: New size of volume (must be greater than current size)
+  SizeLabel:
+    type: String
+    description: >-
+      Should match Size field - this parameter is needed due to AWS not
+      supporting type conversions from integer to string
+mainSteps:
+  - name: IdentifyInstance
+    action: 'aws:executeAwsApi'
+    inputs:
+      Service: ec2
+      Api: DescribeVolumes
+      VolumeIds:
+        - '{{ VolumeId }}'
+    outputs:
+      - Name: InstanceId
+        Selector: '$.Volumes[0].Attachments[0].InstanceId'
+        Type: String
+    description: Extracts instance ID that is used in later functions
+  - name: ModifyEBSVolume
+    action: 'aws:executeAwsApi'
+    inputs:
+      Service: ec2
+      Api: ModifyVolume
+      VolumeId: '{{ VolumeId }}'
+      Size: '{{ Size }}'
+  - name: WaitUntilVolumeOptimizationBegins
+    action: 'aws:waitForAwsResourceProperty'
+    inputs:
+      Service: ec2
+      Api: DescribeVolumesModifications
+      PropertySelector: 'VolumesModifications[0].ModificationState'
+      VolumeIds:
+        - '{{ VolumeId }}'
+      DesiredValues:
+        - optimizing
+        - completed
+  - name: CheckIfRootVolume
+    action: 'aws:branch'
+    inputs:
+      Choices:
+        - Variable: '{{ Device }}'
+          StringEquals: /dev/sda1
+          NextStep: ResizeNvmeRootVolume
+        - Variable: '{{ Device }}'
+          StringEquals: /dev/xvda1
+          NextStep: ResizeStandardRootVolume
+      Default: ResizeNonRootVolume
+  - name: ResizeNvmeRootVolume
+    action: 'aws:runCommand'
+    inputs:
+      DocumentName: AWS-RunShellScript
+      InstanceIds:
+        - '{{ IdentifyInstance.InstanceId }}'
+      Parameters:
+        commands:
+          - growpart /dev/nvme0n1 1
+          - resize2fs /dev/nvme0n1p1
+    isEnd: false
+    nextStep: PublishSnsTopic
+  - name: ResizeStandardRootVolume
+    action: 'aws:runCommand'
+    inputs:
+      DocumentName: AWS-RunShellScript
+      InstanceIds:
+        - '{{ IdentifyInstance.InstanceId }}'
+      Parameters:
+        commands:
+          - growpart /dev/xvda 1
+          - resize2fs /dev/xvda1
+    isEnd: false
+    nextStep: PublishSnsTopic
+  - name: ResizeNonRootVolume
+    action: 'aws:runCommand'
+    inputs:
+      InstanceIds:
+        - '{{ IdentifyInstance.InstanceId }}'
+      DocumentName: AWS-RunShellScript
+      Parameters:
+        commands:
+          - 'resize2fs {{ Device }}'
+    isEnd: false
+  - name: PublishSnsTopic
+    action: 'aws:executeAwsApi'
+    inputs:
+      Service: sns
+      Api: Publish
+      TopicArn: 'arn:aws:sns:us-east-2:729507891944:ebs-volume-resized'
+      Message: >-
+        Region: us-east-2\n
+        Instance: {{ IdentifyInstance.InstanceId }}\n
+        Volume: {{ VolumeId }}\n
+        New Size: {{ SizeLabel }}
+    isEnd: true

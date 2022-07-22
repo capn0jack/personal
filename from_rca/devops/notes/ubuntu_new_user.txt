@@ -1,0 +1,68 @@
+#Create a user and optionally give them full sudo rights.
+#!/bin/bash
+username="cmccabe"
+pubkey="ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIK6dTvK1uTpPoPk9akjdLhCgYMVQDIGo0zgdBzb2WBDf ad\cmccabe@RCA4593"
+mkdir -p /home/$username/.ssh
+touch /home/$username/.ssh/authorized_keys
+useradd -N -d /home/$username $username
+chsh -s /bin/bash $username
+chown -R $username:$username /home/$username/
+chown $username:$username /home/$username
+chmod 700 /home/$username/.ssh
+chmod 644 /home/$username/.ssh/authorized_keys
+echo $pubkey >> /home/$username/.ssh/authorized_keys
+#usermod -aG sudo $username
+#if [ $(getent group $username) ]; then usermod -aG dokku $username; fi
+
+
+
+
+#Create a user and do the group/sudoers config to let them only sudo to the dokku user.
+#!/bin/bash
+username="lcramer"
+pubkey="ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQDIaxpVwT1H3A78zCGknPnPTnPOmI4H8aoP7zjO5HG2o390ukDdhlV97ZQ5xVj9AB+q3BP9+ua2M0a3z27n+rUTM7LfVIcg45tD4dyWIn6BgnrOMz6g5eUPp5kk6JG1xD6hgCbef4Rhswx/+jOVYwPjCL1wNIfWx+7+hH3Omnfbv1hMBuenf3G4w16pW617j7eeVbD2ZskLhu9FoOX+SpStWG9ZPEvBApSFzJi/9go1Gobn7Lb3WFxdoiXAYRylnIsHpiTb5k5pQLGkBtotOnH/CISF6opj4dCPHas7VVisqA17k6M4jDHIXEZ5KWX1emfrW8cz+UA8SetacCDBOywihtKKvlQOEQteQnY3V05JNvfv/wgbTYzcL2PZKwSJhXREWcKxyrS3/AOozdWE/HW4J3UDqK7cd3hIpzhJKVrqCMxzrAjdDoTxMzufwU0PnO192+SXc5m83Mx7jUQgVA/f2+787YbH3i9CQzYwkchDH3JsJd9yGmZLZhuKRaI9V7c= lcramer@RCA4628"
+mkdir -p /home/$username/.ssh
+touch /home/$username/.ssh/authorized_keys
+useradd -N -d /home/$username $username
+chsh -s /bin/bash $username
+chown -R $username:$username /home/$username/
+chown $username:$username /home/$username
+chmod 700 /home/$username/.ssh
+chmod 644 /home/$username/.ssh/authorized_keys
+echo $pubkey >> /home/$username/.ssh/authorized_keys
+
+addgroup sudodokku
+usermod -aG sudodokku $username
+usermod -aG sshusers $username
+echo "" >> /etc/sudoers
+echo "# Allow some developers to sudo to dokku" >> /etc/sudoers
+echo "%sudodokku ALL=(dokku) NOPASSWD: /bin/bash" >> /etc/sudoers
+
+
+
+#Create a cron-runner user and...
+#Do the group/sudoers config to let them only sudo to that cron-runner user.
+#!/bin/bash
+clt="so"
+env="prod"
+use="dba"
+username="tkline"
+cronusername="cron-$clt-$env-$use"
+sudogroupname="sudo-$cronusername"
+mkdir -p /home/$cronusername/.ssh
+touch /home/$cronusername/.ssh/authorized_keys
+useradd -d /home/$cronusername $cronusername
+chsh -s /bin/bash $cronusername
+chown -R $cronusername:$cronusername /home/$cronusername/
+chown $cronusername:$cronusername /home/$cronusername
+chmod 700 /home/$cronusername/.ssh
+chmod 644 /home/$cronusername/.ssh/authorized_keys
+
+
+addgroup $sudogroupname
+echo "" >> /etc/sudoers
+echo "# Allow $sudogroupname to sudo to $cronusername" >> /etc/sudoers
+echo "%$sudogroupname ALL=($cronusername) NOPASSWD: /bin/bash" >> /etc/sudoers
+
+usermod -aG $sudogroupname $username
+usermod -aG sshusers $username

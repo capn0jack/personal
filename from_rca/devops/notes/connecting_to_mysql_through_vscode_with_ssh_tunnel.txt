@@ -1,0 +1,10 @@
+The VS Code extension cweijan.vscode-mysql-client2 won't handle ED25519 keys or keys in the new OpenSSH format.
+
+Generate an RSA key in PEM format thusly:
+ssh-keygen -t RSA -b 4096 -m PEM -f id_rsa_pem_format
+
+Put the contents of the generated public key in the authorized_keys file for your user on the SSH host.
+
+Configure the VS Code extension to use the SSH tunnel.
+
+Et voila.

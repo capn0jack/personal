@@ -1,0 +1,15 @@
+---
+schemaVersion: "2.2"
+description: "Archives rotated server logs in S3"
+mainSteps:
+- action: "aws:runShellScript"
+  name: "runShellScript"
+  inputs:
+    runCommand:
+    - |+
+      #!/bin/bash
+      TOKEN=$(curl -sX PUT "http://169.254.169.254/latest/api/token" -H "X-aws-ec2-metadata-token-ttl-seconds: 21600")
+      INSTANCE_ID=$(curl -sH "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/instance-id)
+      PRIVATE_IP=$(curl -sH "X-aws-ec2-metadata-token: $TOKEN" http://169.254.169.254/latest/meta-data/local-ipv4)
+
+      /usr/local/bin/aws s3 mv /var/log s3://archived-logs-us-east-2-729507891944-6c0df76f/$INSTANCE_ID_$PRIVATE_IP/ --recursive --exclude "*" --include "*.gz" --sse AES256 --storage-class STANDARD_IA --region us-east-2

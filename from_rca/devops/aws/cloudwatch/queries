@@ -1,0 +1,22 @@
+#This will get all the log streams with message counts for Laravel worker containers, sorted in descending order.  The ones with the most records should be the PROD containers that were up during the period.
+fields @logStream, @timestamp, @message
+| filter @message like /MakeSearchable/
+| stats count(@logStream) as count by @logStream
+| sort by count desc
+
+#This will get all the messages from a single log stream where the message contains one of two time strings.
+fields @logStream, @timestamp, @message
+| filter (@logStream = "8849813e99fac0d2bee42aed45876d52d9593e89c3d5e35362cc7bec2a58024a" and (@message like /2022-04-27 12/ or @message like /2022-04-27 13/))
+| limit 10000
+
+#Same thing, but using an "in" clause to get multiple log strams.
+fields @logStream, @timestamp, @message
+| filter (@logStream in ["e38cd0081e3bf48554159a8b44935e0ecbfef1d8827feda5a939c5f01cf0e121","627f6d83d8b631e28058a82eef9229c382b3d6fc8ca9d84696ebf31e2b12034f","f6406455ebf7673cd5f7b0d0befafc5f895704dff2ddb99f645738868def879d","9eaf51e3a629cbae60e9d29773aca739af5c9ceb19852d48f85f14c6d0ef97a0","762ca1de7a08a2d99ee66e0fbfc365fbd335abb547e28f51a004b7bc5d511b4b","cfdc94b8238439845fb6e2c1b9ea66b721808d186da2d789a1675096d594c531","56c39171ec6bce464c3cb80c47f99e13b5185a80c8940ec869aee4d5b057a5cf","9e01fea7ada2fa55593d88759dcc2c18ef447d3087bf26c0ee40bbaa8ee08cb0"] and (@message like /2022-05-02 12/ or @message like /2022-05-02 15/))
+| limit 10000
+
+
+#This will get the timestamps in milliseconds:
+cmccabe@RCA4593:~$ date -u '+%s%3N' -d 'TZ="UTC" 2022-04-27 04:30:00.000'
+1651017600000
+cmccabe@RCA4593:~$ date -u '+%s%3N' -d 'TZ="UTC" 2022-04-27 05:30:00.000'
+1651103940000

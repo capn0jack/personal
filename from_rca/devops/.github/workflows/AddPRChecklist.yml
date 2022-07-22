@@ -1,0 +1,31 @@
+on:
+  pull_request:
+    branches:
+      - dev
+
+jobs:
+  comment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: mshick/add-pr-comment@v1
+        with:
+          message: |
+            1.	Is all work relating to this issue/feature branch for this repo included in this PR? (Yes/No)
+              a.	If not, withhold further review until all work has been included.
+
+            2.	Were relevant unit tests written and were all unit tests passed locally? (Yes/No)
+              a.	If they were skipped or not done, withhold further review until all tests have been written, run, and passed locally.
+
+            3.	Was manual end-to-end testing completed locally to verify work sufficiently meets requirements? (Yes/No)
+              a.	If local manual end-to-end testing was not attempted, withhold further review until it is completed.
+              b.	If local manual end-to-end testing requires corresponding frontend/backend work to be completed, withhold further review until all corresponding work has been completed and tested for the issue.
+              c.	If local manual end-to-end testing is truly impossible for reasons other than "testing on dev is simpler" or because corresponding frontend/backend work isn't completed yet, evaluate reasoning before deciding to proceed.
+
+            4.	What previously unspecified test cases or configurations have been identified that need to be repeated in other environments (QA, Staging, Prod) to verify work? (List, if any)
+              a.	N/A is acceptable as an answer.
+
+            5.	What top 3 features are primarily affected by this work for regression testing purposes? (List)
+              a.	If missing, withhold further review until bullet list is included.
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          repo-token-user-login: 'github-actions[bot]' # The user.login for temporary GitHub tokens
+          allow-repeats: false # This is the default

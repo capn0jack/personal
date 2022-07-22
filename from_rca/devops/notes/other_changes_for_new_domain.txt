@@ -1,0 +1,8 @@
+[4:02 PM] LaMaia Cramer
+    I did not do anything with branch.io.  I passed it to Varun.  I believe that what he did was set up a link, and then insert it into the database via the front end, and I believe it made links start working
+​[4:02 PM] LaMaia Cramer
+    there were no actual code-level changes needed
+​[4:02 PM] LaMaia Cramer
+    but we should add it to our list of "things that needed to be done to make an environment work"
+​[4:03 PM] LaMaia Cramer
+    on branch.io, he set the "default url" to "https://app.shoutout.com/"

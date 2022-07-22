@@ -1,0 +1,28 @@
+#CF runs this as a cron job every day to force the herokuish build packs to update:
+apt-get install --only-upgrade herokuish
+
+Removed from admin composer.json:
+,
+            "@php artisan key:generate --ansi"
+
+caredfor:update is the db script that iterates through all the client DBs
+
+#content wasn't appearing because it was scheduled for the future
+update entries set scheduled=0 where author_id like '%the_posting_users_id_here';
+
+* * * * * dokku --rm run caredfor-laravel-rca-export php artisan schedule:run &>> /var/log/dokku/cron.log
+php artisan caredfor:scout:import would most likely definitel import everything
+
+SFTP stuff:
+app/Console/Commands/SftpImportAppointments.php
+app\Console\Commands\ImportSftp\CmActions.php
+
+#Don't really understand yet how this might figure in.
+# Purge revoked and expired tokens and auth codes...
+php artisan passport:purge
+
+# Only purge revoked tokens and auth codes...
+php artisan passport:purge --revoked 
+
+# Only purge expired tokens and auth codes...
+php artisan passport:purge --expired

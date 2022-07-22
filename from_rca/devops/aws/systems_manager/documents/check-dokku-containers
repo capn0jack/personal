@@ -1,0 +1,79 @@
+---
+schemaVersion: "2.2"
+description: "Checks that the appropriate Dokku containers are still running on the host. DEVO-170"
+mainSteps:
+- action: "aws:runShellScript"
+  name: "runShellScript"
+  inputs:
+    runCommand:
+    - |+
+      #!/bin/bash
+      
+      SNSTOPICARN="arn:aws:sns:us-east-2:729507891944:check-dokku-containers"
+      DOKKUDIR="/home/dokku"
+      
+      f=""
+      APPDIR=""
+      DOKKUSCALE=""
+      line=""
+      PROCNAME=""
+      PROCCOUNT=""
+      OUTPUT=""
+      AWS=""
+      TIMESTAMP=""
+      UNZIP=""
+      
+      TIMESTAMP=`date "+%Y%m%d-%H%M%S"`
+      HOST=`hostname`
+      
+      #Make sure we have unzip.
+      UNZIP=`which unzip`
+      if [ "$UNZIP" == "" ]; then
+          apt install unzip
+          UNZIP=`which unzip`
+          if [ "$UNZIP" == "" ]; then
+              echo "unzip doesn't appear to be installed.  Exiting."
+              exit
+          fi
+      fi
+      
+      #Make sure we have the AWS CLI.
+      AWS=`which aws`
+      if [ "$AWS" == "" ]; then
+          mkdir /root/temp$TIMESTAMP
+          curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "/root/temp$TIMESTAMP/awscliv2.zip"
+          cd /root/temp$TIMESTAMP
+          unzip awscliv2.zip
+          ./aws/install
+          AWS=`which aws`
+          if [ "$AWS" == "" ]; then
+              echo "AWS CLI doesn't appear to be installed.  Exiting."
+              exit
+          fi
+      fi
+      
+      #Loop through all the Dokku app directories.
+      cd "$DOKKUDIR"
+      for f in *; do
+          if [[ -d "$f" && ! -L "$f" ]]; then
+              APPDIR="$f"
+              DOKKUSCALE="$APPDIR/DOKKU_SCALE"
+              #Loop through the procs that are supposed to be running on this machine.
+              if [ -f "$DOKKUSCALE" ]; then
+                  while read line; do
+                      PROCNAME=`echo "$line" | cut -d "=" -f 1`
+                      PROCCOUNT=`echo "$line" | cut -d "=" -f 2`
+                      if [ "$PROCCOUNT" -gt "0" ]; then
+                          #Grep the output of ps:report to find procs that aren't in a "running" stat.
+                          OUTPUT=`dokku ps:report $APPDIR | grep "Status $PROCNAME " | grep -v "running"`
+                          if [ "$OUTPUT" != "" ]; then
+                              #Notify via SNS.
+                              aws sns publish --topic-arn $SNSTOPICARN --message "$HOST $APPDIR $OUTPUT"
+                          fi
+                      fi
+                  done <$DOKKUSCALE
+              fi
+          fi
+      done
+
+      curl https://hc-ping.com/b871fb09-d8a6-425a-901d-e058536d1080

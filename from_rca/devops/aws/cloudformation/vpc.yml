@@ -1,0 +1,1023 @@
+Description: |-
+  This template deploys a VPC, with a public and a private subnet. It deploys
+  an internet gateway, with a default route on the public subnet. It deploys
+  a NAT gateways in the private subnets.
+
+  See notes/configuring_a_new_shoutout_env.md for the things that have to be done manually after this CF template is run.  
+  
+  Known issues:
+  
+  You have to create the CloudFront certificate first and feed the ARN here as a paramter.  See ./cfcertificate.yml.
+
+  Need to add attachment of WAF.
+
+  Need to add creation of ec2-instance-dokku-builder-* role.
+
+  Need to add S3 bucket versioning and replication.
+  
+Parameters:
+  FirstOctet:
+    Description: The first octet of the VPN subnet.
+    Type: String
+    Default: 10
+  SecondOctet:
+    Description: The second octet of the VPC subnet.
+    Type: String
+  ThirdOctet:
+    Description: The third octet of the VPC subnet.
+    Type: String
+    Default: 0
+  FourthOctet:
+    Description: The fouth octet of the VPC subnet.
+    Type: String
+    Default: 0
+  PublicOctet1:
+    Description: The starting third octet of the public subnet addresses.
+    Type: String
+    Default: 0
+  PublicOctet2:
+    Description: The next third octet of the public subnet addresses.
+    Type: String
+    Default: 1
+  PrivateOctet1:
+    Description: The starting third octet of the private subnet addresses.
+    Type: String
+    Default: 10
+  PrivateOctet2:
+    Description: The next third octet of the private subnet addresses.
+    Type: String
+    Default: 11
+  VpcCidrMask:
+    Description: The CIDR mask of the VPC subnet.
+    Type: String
+    Default: 16
+  SubnetCidrMask:
+    Description: The CIDR mask of the subnets.
+    Type: String
+    Default: 24
+  EnvironmentName:
+    Description: The environment name (like dev, qa, prod, etc.)
+    Type: String
+    MinLength: '2'
+    MaxLength: '4'
+    AllowedPattern: '[a-z]*'
+    ConstraintDescription: must be at least 3 characters, must be no more than 4 characters, and must contain only lowercase letters.
+  ClientName:
+    Description: The client name.
+    Type: String
+    Default: 'so'
+  KeyName:
+    Description: The key pair to use for access to the instance.
+    Type: String
+    Default: 'cmccabe@recoverycoa.com'
+  InstanceTypeBuilder:
+    Description: The instance type to use for the new instance.
+    Type: String
+    Default: 't3a.large'
+  InstanceTypeTarget:
+    Description: The instance type to use for the new instance.
+    Type: String
+    Default: 't3a.large'
+  HostnameBuilder:
+    Description: The hostname to set on the builder instance.
+    Type: String
+  HostnameTarget:
+    Description: The hostname to set on the target instance.
+    Type: String
+  InternalDomainName:
+    Description: The internal DNS domain name.
+    Type: String
+    Default: 'so.int'
+  ExternalDomainNameBase:
+    Description: The base external DNS domain name.
+    Type: String
+    Default: 'shoutout.com'
+  ExternalDomainHostedZoneID:
+    Type: AWS::Route53::HostedZone::Id
+    Description: The Hosted Zone for the Record Set
+  TagOS:
+    Description: The value that will be used for the "OS" tag.
+    Type: String
+    Default: 'Ubuntu 20'
+  Tagaide:
+    Description: Value of aide tag.
+    Type: String
+    Default: 'enabled'
+  Tagarchivelogs:
+    Description: Value of archive_logs tag.
+    Type: String
+    Default: 'enabled'
+  Tagclamscan:
+    Description: Value of clamscan tag.
+    Type: String
+    Default: 'enabled'
+  Tagpatchgroup:
+    Description: Value of patch_group tag.
+    Type: String
+    Default: 'ubuntu-a'
+  Tagsnapshots:
+    Description: Value of snapshots tag.
+    Type: String
+    Default: 'enabled'
+  AccountID:
+    Description: The AWS account ID.
+    Type: String
+    Default: '729507891944'
+  DBInstanceClass:
+    Default: db.t3.medium
+    Description: DB instance class
+    Type: String
+    ConstraintDescription: Must select a valid DB instance type.
+  DBAllocatedStorage:
+    Default: '20'
+    Description: The storage allocated for the database (GiB)
+    Type: Number
+    MinValue: '5'
+    MaxValue: '1024'
+    ConstraintDescription: must be between 5 and 1024 GiB.
+  DBPassword:
+    NoEcho: 'true'
+    Description: Password MySQL database access
+    Type: String
+    MinLength: '20'
+    MaxLength: '20'
+    AllowedPattern: '[a-zA-Z0-9]*'
+    ConstraintDescription: must be at least 20 characters, must be no more than 20 characters, and must contain only alphanumeric characters.
+  ELBAccountID:
+    Description: 'https://docs.aws.amazon.com/elasticloadbalancing/latest/application/load-balancer-access-logs.html'
+    Type: String
+    Default: '033677994240'
+  PrefixListSemaphore:
+    Description: 'The prefix list that defines the source IPs from which Semaphore initiates SSH connections.'
+    Type: String
+    Default: 'pl-078f0b0f2d1f67ac7'
+  PrefixListOpenVPNServer:
+    Description: 'The prefix list that defines the source IPs for connections from the OpenVPN Server.'
+    Type: String
+    Default: 'pl-0616b044766f2970f'
+  MailHost:
+    Description: 'The host to which the "mail" name will be CNAMEd.'
+    Type: String
+    Default: 'sparkpostmail.com'
+  ProdVPCID:
+    Description: 'The ID of the existing production VPC with which we will create the peering connection.'
+    Type: String
+    Default: 'vpc-0d56849ef2e752e95'
+  ProdRouteTarget:
+    Description: 'The CIDR subnet for which we will create routes across the peering connection.'
+    Type: String
+    Default: '10.0.0.0/16'
+  ProdRouteTableID:
+    Description: 'The ID of the route table to which we will add routes pointing to the new VPC.'
+    Type: String
+    Default: 'rtb-0eca877cb0710bf24'
+  IamInstanceProfileTarget:
+    Description: 'The name of the IAM instance profile that we will assign to the target EC2 instance.'
+    Type: String
+    Default: 'ec2-instance-dokku-target'
+  IamInstanceProfileBuilder:
+    Description: 'The name of the IAM instance profile that we will assign to the builder EC2 instance.'
+    Type: String
+    Default: 'ec2-instance-dokku-builder'
+  CFPublicKey:
+    Description: 'The actual string of the public key of the key pair generated for CloudFront signed URLs.  This requires that same nonsense where the newline characters have to be replaced with \n, plus a gratuitous \n at the end.'
+    Type: String
+  CFCertificateArn:
+    Description: 'The ARN of the certificate in us-east-1 that will be used by the CloudFront distribution.'
+    Type: String
+  CachePolicyId:
+    Description: 'The ID of the managed cache policy to be used in the CloudFront distribution behaviors.'
+    Type: String
+    Default: '658327ea-f89d-4fab-a63d-7e88639e58f6'
+  OriginRequestPolicyId:
+    Description: 'The ID of the managed origin request policy to be used in the CloudFront distribution behaviors.'
+    Type: String
+    Default: '88a5eaf4-2fd4-4709-b370-b4c650ea3fcf'
+Resources:
+  VPC:
+    Type: 'AWS::EC2::VPC'
+    Properties:
+      CidrBlock: !Sub '${FirstOctet}.${SecondOctet}.${ThirdOctet}.${FourthOctet}/${VpcCidrMask}'
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      Tags:
+        - Key: Name
+          Value: !Ref EnvironmentName
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  VPCPeeringConnection:
+    Type: AWS::EC2::VPCPeeringConnection
+    Properties: 
+      PeerVpcId: !Ref VPC
+      VpcId: !Ref ProdVPCID
+      Tags:
+        - Key: Name
+          Value: !Join ["-",['prod',!Ref EnvironmentName]]
+  InternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: !Sub 'igw_${EnvironmentName}'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  InternetGatewayAttachment:
+    Type: 'AWS::EC2::VPCGatewayAttachment'
+    Properties:
+      InternetGatewayId: !Ref InternetGateway
+      VpcId: !Ref VPC
+  PublicSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs ''
+      CidrBlock: !Sub '${FirstOctet}.${SecondOctet}.${PublicOctet1}.${FourthOctet}/${SubnetCidrMask}'
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}_0'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  PublicSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs ''
+      CidrBlock: !Sub '${FirstOctet}.${SecondOctet}.${PublicOctet2}.${FourthOctet}/${SubnetCidrMask}'
+      MapPublicIpOnLaunch: true
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}_1'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  PrivateSubnet1:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select 
+        - 0
+        - !GetAZs ''
+      CidrBlock: !Sub '${FirstOctet}.${SecondOctet}.${PrivateOctet1}.${FourthOctet}/${SubnetCidrMask}'
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}_10'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  PrivateSubnet2:
+    Type: 'AWS::EC2::Subnet'
+    Properties:
+      VpcId: !Ref VPC
+      AvailabilityZone: !Select 
+        - 1
+        - !GetAZs ''
+      CidrBlock: !Sub '${FirstOctet}.${SecondOctet}.${PrivateOctet2}.${FourthOctet}/${SubnetCidrMask}'
+      MapPublicIpOnLaunch: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}_11'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  EIPNatGateway1:
+    Type: 'AWS::EC2::EIP'
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      Domain: vpc
+      Tags:
+        - Key: Name
+          Value: !Sub 'ngweip_${EnvironmentName}'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  NatGateway1:
+    Type: 'AWS::EC2::NatGateway'
+    Properties:
+      AllocationId: !GetAtt 
+        - EIPNatGateway1
+        - AllocationId
+      SubnetId: !Ref PublicSubnet1
+      Tags:
+        - Key: Name
+          Value: !Sub 'ngw_${EnvironmentName}'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}_public'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  RouteDefaultPublic:
+    Type: 'AWS::EC2::Route'
+    DependsOn: InternetGatewayAttachment
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+  RouteFromPublicToProd:
+    Type: 'AWS::EC2::Route'
+    DependsOn: VPCPeeringConnection
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: !Ref ProdRouteTarget
+      VpcPeeringConnectionId: !Ref VPCPeeringConnection
+  RouteFromPrivateToProd:
+    Type: 'AWS::EC2::Route'
+    DependsOn: VPCPeeringConnection
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: !Ref ProdRouteTarget
+      VpcPeeringConnectionId: !Ref VPCPeeringConnection
+  RouteFromProdToNewVPC:
+    Type: 'AWS::EC2::Route'
+    DependsOn: VPCPeeringConnection
+    Properties:
+      RouteTableId: !Ref ProdRouteTableID
+      DestinationCidrBlock: !Sub '${FirstOctet}.${SecondOctet}.${ThirdOctet}.${FourthOctet}/${VpcCidrMask}'
+      VpcPeeringConnectionId: !Ref VPCPeeringConnection
+  PublicSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet1
+  PublicSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref PublicSubnet2
+  PrivateRouteTable1:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Sub '${EnvironmentName}_private'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  DefaultPrivateRoute1:
+    Type: 'AWS::EC2::Route'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      DestinationCidrBlock: 0.0.0.0/0
+      NatGatewayId: !Ref NatGateway1
+  PrivateSubnet1RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnet1
+  PrivateSubnet2RouteTableAssociation:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable1
+      SubnetId: !Ref PrivateSubnet2
+  SecurityGroupBuilder:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Dokku builder.
+      VpcId:
+        Ref: VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.0.0.0/8
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 50.202.123.210/32
+      - IpProtocol: tcp
+        FromPort: 22
+        SourcePrefixListId: !Ref PrefixListSemaphore
+        ToPort: 22
+      Tags:
+        - Key: Name
+          Value: !Sub '${HostnameBuilder}'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  SecurityGroupTarget:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Dokku target.
+      VpcId:
+        Ref: VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: 10.0.0.0/8
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 10.0.0.0/8
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 10.0.0.0/8
+      Tags:
+        - Key: Name
+          Value: !Sub '${HostnameTarget}'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  InstanceBuilder: 
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: "ami-07205e6ace8c4e730"
+      InstanceType:
+        Ref: InstanceTypeBuilder
+      KeyName: 
+        Ref: KeyName
+      SecurityGroupIds: 
+        Fn::Split:
+          - ","
+          - !Ref SecurityGroupBuilder
+      SubnetId:
+        Ref: PublicSubnet1
+      IamInstanceProfile: !Ref IamInstanceProfileBuilder
+      Tags:
+        - Key: "Name"
+          Value: !Ref HostnameBuilder
+        - Key: "OS"
+          Value: !Ref TagOS
+        - Key: "aide"
+          Value: !Ref Tagaide
+        - Key: "archive_logs"
+          Value: !Ref Tagarchivelogs
+        - Key: "clamscan"
+          Value: !Ref Tagclamscan
+        - Key: "patch_group"
+          Value: !Ref Tagpatchgroup
+        - Key: "env"
+          Value: !Ref EnvironmentName
+        - Key: "snapshots"
+          Value: !Ref Tagsnapshots
+        - Key: "appdelivery"
+          Value: "true"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          export TEMPHOSTNAME=${HostnameBuilder}
+          export TEMPDOMAIN=${InternalDomainName}
+          apt-get update
+          snap install powershell --classic
+          sh -c 'echo /snap/powershell/160/opt/powershell/pwsh >> /etc/shells'
+          cat > ~/tempfile.txt <<oijiuyHkuyNliOJMOLIUhOIUnhOIuJ
+          \$name = \$ENV:TEMPHOSTNAME
+          \$dom = \$ENV:TEMPDOMAIN
+          \$ipstring = hostname -I
+          \$ips = \$ipstring.Split()
+          foreach (\$ip in \$ips) {
+              if (\$ip -like "10.*") {
+                      \$ip
+                      break
+                  }
+              }
+          powershell -c "echo \$name > /etc/hostname"
+          powershell -c "hostname \$name"
+          \$hostsEntry = "\$ip \$name.\$dom \$name"
+          powershell -c "sh -c 'echo \$hostsEntry >> /etc/hosts'"
+          powershell -c "sh -c 'echo Domains=\$dom >> /etc/systemd/resolved.conf'"
+          powershell -c "systemctl restart systemd-resolved.service"
+          oijiuyHkuyNliOJMOLIUhOIUnhOIuJ
+          powershell -f ~/tempfile.txt
+  EIPBuilder:
+    Type: 'AWS::EC2::EIP'
+    Properties:
+      Domain: vpc
+      InstanceId:
+        Ref: InstanceBuilder
+      Tags:
+        - Key: Name
+          Value: !Sub 'eip_${HostnameBuilder}'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  InstanceTarget:
+    Type: AWS::EC2::Instance
+    Properties: 
+      ImageId: "ami-031339caf993a77d0"
+      InstanceType:
+        Ref: InstanceTypeTarget
+      KeyName: 
+        Ref: KeyName
+      SecurityGroupIds: 
+        Fn::Split:
+          - ","
+          - !Ref SecurityGroupTarget
+      SubnetId:
+        Ref: PrivateSubnet1
+      IamInstanceProfile: !Ref IamInstanceProfileTarget
+      Tags:
+        - Key: "Name"
+          Value: !Ref HostnameTarget
+        - Key: "OS"
+          Value: !Ref TagOS
+        - Key: "aide"
+          Value: !Ref Tagaide
+        - Key: "archive_logs"
+          Value: !Ref Tagarchivelogs
+        - Key: "clamscan"
+          Value: !Ref Tagclamscan
+        - Key: "patch_group"
+          Value: !Ref Tagpatchgroup
+        - Key: "env"
+          Value: !Ref EnvironmentName
+        - Key: "snapshots"
+          Value: !Ref Tagsnapshots
+        - Key: "appdelivery"
+          Value: "true"
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          export TEMPHOSTNAME=\${HostnameTarget}
+          export TEMPDOMAIN=\${InternalDomainName}
+          apt-get update
+          snap install powershell --classic
+          sh -c 'echo /snap/powershell/160/opt/powershell/pwsh >> /etc/shells'
+          cat > ~/tempfile.txt <<oijiuyHkuyNliOJMOLIUhOIUnhOIuJ
+          \$name = \$ENV:TEMPHOSTNAME
+          \$dom = \$ENV:TEMPDOMAIN
+          \$ipstring = hostname -I
+          \$ips = \$ipstring.Split()
+          foreach (\$ip in \$ips) {
+              if (\$ip -like "10.*") {
+                      \$ip
+                      break
+                  }
+              }
+          powershell -c "echo \$name > /etc/hostname"
+          powershell -c "hostname \$name"
+          \$hostsEntry = "\$ip \$name.\$dom \$name"
+          powershell -c "sh -c 'echo \$hostsEntry >> /etc/hosts'"
+          powershell -c "sh -c 'echo Domains=\$dom >> /etc/systemd/resolved.conf'"
+          powershell -c "systemctl restart systemd-resolved.service"
+          oijiuyHkuyNliOJMOLIUhOIUnhOIuJ
+          powershell -f ~/tempfile.txt
+  InternalDNSEntryBuilder:
+    Type: AWS::Route53::RecordSet
+    Properties: 
+      HostedZoneName: !Join ["",[!Ref InternalDomainName,"."]]
+      Name: !Join [".",[!Ref HostnameBuilder,!Ref InternalDomainName]]
+      ResourceRecords: 
+        - !GetAtt InstanceBuilder.PrivateIp
+      TTL: 60
+      Type: 'A'
+  InternalDNSEntryTarget:
+    Type: AWS::Route53::RecordSet
+    Properties: 
+      HostedZoneName: !Join ["",[!Ref InternalDomainName,"."]]
+      Name: !Join [".",[!Ref HostnameTarget,!Ref InternalDomainName]]
+      ResourceRecords: 
+        - !GetAtt InstanceTarget.PrivateIp
+      TTL: 60
+      Type: 'A'
+  ExternalDNSEntryGroup:
+    Type: AWS::Route53::RecordSetGroup
+    Properties:
+      Comment: These are all the entries that get created in the Internet-facing domain.
+      HostedZoneId: !Ref ExternalDomainHostedZoneID
+      RecordSets: 
+      - Name: !Join [".",[!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        Type: 'A'
+        AliasTarget:
+          HostedZoneId: !GetAtt LB.CanonicalHostedZoneID
+          DNSName: !GetAtt LB.DNSName
+      - Name: !Join [".",['app',!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        ResourceRecords: 
+          - !GetAtt LB.DNSName
+        TTL: 60
+        Type: 'CNAME'
+      - Name: !Join [".",['www',!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        ResourceRecords: 
+          - !Join [".",['app',!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        TTL: 60
+        Type: 'CNAME'
+      - Name: !Join [".",['sms',!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        ResourceRecords: 
+          - !GetAtt LB.DNSName
+        TTL: 60
+        Type: 'CNAME'
+      - Name: !Join [".",['mail',!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        ResourceRecords: 
+          - !Ref MailHost
+        TTL: 60
+        Type: 'CNAME'
+      - Name: !Join [".",['int',!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        ResourceRecords: 
+          - !GetAtt LB.DNSName
+        TTL: 60
+        Type: 'CNAME'
+      - Name: !Join [".",['global',!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        ResourceRecords: 
+          - !GetAtt LB.DNSName
+        TTL: 60
+        Type: 'CNAME'
+      - Name: !Join [".",['ess',!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        ResourceRecords: 
+          - !GetAtt LB.DNSName
+        TTL: 60
+        Type: 'CNAME'
+      - Name: !Join [".",['cm',!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        ResourceRecords: 
+          - !GetAtt LB.DNSName
+        TTL: 60
+        Type: 'CNAME'
+      - Name: !Join [".",['assess',!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        ResourceRecords: 
+          - !GetAtt LB.DNSName
+        TTL: 60
+        Type: 'CNAME'
+      - Name: !Join [".",['api',!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        ResourceRecords: 
+          - !GetAtt LB.DNSName
+        TTL: 60
+        Type: 'CNAME'
+      - Name: !Join [".",['admin',!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        ResourceRecords: 
+          - !GetAtt LB.DNSName
+        TTL: 60
+        Type: 'CNAME'
+        Name: !Join [".",[!Ref HostnameBuilder,!Ref ExternalDomainNameBase]]
+        ResourceRecords: 
+          - !Ref EIPBuilder
+        TTL: 60
+        Type: 'A'
+      - Name: !Join [".",['cdn',!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        ResourceRecords: 
+          - !GetAtt CFDistributionV3.DomainName
+        TTL: 60
+        Type: 'CNAME'
+  SecurityGroupRDS:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for RDS instance.
+      GroupName: !Join ["",["rds",!Ref EnvironmentName]]
+      VpcId: !Ref VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 3306
+        SourceSecurityGroupId: !Ref SecurityGroupTarget
+        ToPort: 3306
+      - IpProtocol: tcp
+        FromPort: 3306
+        SourceSecurityGroupId: !Ref SecurityGroupBuilder
+        ToPort: 3306
+      - IpProtocol: tcp
+        FromPort: 3306
+        SourcePrefixListId: !Ref PrefixListOpenVPNServer
+        ToPort: 3306
+      Tags:
+        - Key: Name
+          Value: !Join ["",["rds",!Ref EnvironmentName]]
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  SecurityGroupPublicHTTPS:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group to allow HTTP and HTTPS traffic from everywhere.
+      VpcId:
+        Ref: VPC
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 80
+        ToPort: 80
+        CidrIp: 0.0.0.0/0
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: 0.0.0.0/0
+      Tags:
+        - Key: Name
+          Value: 'PublicHTTP-S'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties: 
+      DBSubnetGroupDescription: !Sub 'Subnet group for rds${EnvironmentName}.'
+      DBSubnetGroupName: !Sub 'rds${EnvironmentName}SubnetGroup'
+      SubnetIds:
+        Fn::Split:
+        - ","
+        - !Sub "${PrivateSubnet1},${PrivateSubnet2}"
+      Tags:
+        - Key: Name
+          Value: !Sub 'dbsng_rds${EnvironmentName}'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  RDS:
+    Type: 'AWS::RDS::DBInstance'
+    Properties:
+      DBInstanceIdentifier: !Join ["",["rds",!Ref EnvironmentName]]
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: !Ref DBAllocatedStorage
+      Engine: MySQL
+      EngineVersion: 5.7.26
+      MasterUsername: !Join ["",["adminrds",!Ref EnvironmentName]]
+      MasterUserPassword: !Ref DBPassword
+      MonitoringInterval: '60'
+      MonitoringRoleArn: !Sub 'arn:aws:iam::${AccountID}:role/rds-monitoring-role'
+      VPCSecurityGroups: 
+        Fn::Split:
+          - ","
+          - !Ref SecurityGroupRDS
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      Tags:
+        - Key: Name
+          Value: !Sub 'rds${EnvironmentName}'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  ExternalDNSEntryRDS:
+    Type: AWS::Route53::RecordSet
+    Properties: 
+      HostedZoneName: !Join ["",[!Ref ExternalDomainNameBase,"."]]
+      Name: !Join [".",["rds",!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+      ResourceRecords: 
+        - !GetAtt RDS.Endpoint.Address
+      TTL: 60
+      Type: 'CNAME'
+  S3BucketLBAccessLogsPolicy:
+    Type: 'AWS::S3::BucketPolicy'
+    Properties:
+      Bucket: !Ref S3BucketLBAccessLogs
+      PolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Effect: Allow
+            Principal:
+              AWS: 'arn:aws:iam::033677994240:root'
+            Action: 's3:PutObject'
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref S3BucketLBAccessLogs
+                - '/AWSLogs/'
+                - !Ref AccountID
+                - '/*'
+          - Effect: Allow
+            Principal:
+              Service: 'delivery.logs.amazonaws.com'
+            Action: 's3:PutObject'
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref S3BucketLBAccessLogs
+                - '/AWSLogs/'
+                - !Ref AccountID
+                - '/*'
+            Condition:
+              StringEquals:
+                's3:x-amz-acl': 'bucket-owner-full-control'
+          - Effect: Allow
+            Principal:
+              Service: 'delivery.logs.amazonaws.com'
+            Action: 's3:GetBucketAcl'
+            Resource: !Join
+              - ''
+              - - 'arn:aws:s3:::'
+                - !Ref S3BucketLBAccessLogs
+  S3BucketLBAccessLogs:
+    Type: 'AWS::S3::Bucket'
+    DeletionPolicy: Delete
+    Properties:
+      BucketName: !Join ["-",[!Ref ClientName,!Ref EnvironmentName,"lb-accesslogs"]]
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: 'aws:kms'
+      PublicAccessBlockConfiguration:
+          BlockPublicAcls: true
+          BlockPublicPolicy: true
+          IgnorePublicAcls: true
+          RestrictPublicBuckets: true
+      Tags:
+        - Key: Name
+          Value: !Join ["-",[!Ref ClientName,!Ref EnvironmentName,"lb-accesslogs"]]
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  LB:
+    Type: AWS::ElasticLoadBalancingV2::LoadBalancer
+    Properties: 
+      IpAddressType: ipv4
+      Name: !Join ["-",[!Ref ClientName,!Ref EnvironmentName,"lb"]]
+      Scheme: 'internet-facing'
+      SecurityGroups: 
+        Fn::Split:
+        - ","
+        - !Ref SecurityGroupPublicHTTPS
+      Subnets:
+        Fn::Split:
+        - ","
+        - !Sub "${PublicSubnet1},${PublicSubnet2}"
+      Type: 'application'
+      LoadBalancerAttributes: 
+        - Key: "deletion_protection.enabled"
+          Value: 'true'
+        - Key: "access_logs.s3.enabled"
+          Value: 'true'
+        - Key: "access_logs.s3.bucket"
+          Value: !Ref S3BucketLBAccessLogs
+      Tags:
+        - Key: Name
+          Value: !Join ["-",[!Ref ClientName,!Ref EnvironmentName,"lb"]]
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  TG:
+    Type: AWS::ElasticLoadBalancingV2::TargetGroup
+    Properties: 
+      Name: !Join ["-",[!Ref ClientName,!Ref EnvironmentName,"tg"]]
+      Port: 443
+      Protocol: 'HTTPS'
+      Targets: 
+        - Id: !Ref InstanceTarget
+          Port: 443
+      TargetType: 'instance'
+      VpcId: !Ref VPC
+      Tags:
+        - Key: Name
+          Value: !Join ["-",[!Ref ClientName,!Ref EnvironmentName,"tg"]]
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  ListenerHTTP:
+    Type: 'AWS::ElasticLoadBalancingV2::Listener'
+    Properties:
+      DefaultActions:
+        - RedirectConfig:
+            Host: "#{host}"
+            Path: "/#{path}"
+            Port: 443
+            Protocol: "HTTPS"
+            Query: "#{query}"
+            StatusCode: HTTP_301
+          Type: "redirect"
+      LoadBalancerArn: !Ref LB
+      Port: 80
+      Protocol: 'HTTP'
+  ListenerHTTPS:
+    Type: AWS::ElasticLoadBalancingV2::Listener
+    Properties: 
+      Certificates: 
+          - CertificateArn: !Ref Certificate
+      DefaultActions: 
+        - Type: "forward"
+          TargetGroupArn: !Ref TG          
+      LoadBalancerArn: !Ref LB
+      Port: 443
+      Protocol: 'HTTPS'
+  Certificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties: 
+      DomainName: !Join [".",["*",!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+      DomainValidationOptions: 
+        - DomainName: !Join [".",["*",!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+          HostedZoneId: !Ref ExternalDomainHostedZoneID
+      SubjectAlternativeNames: 
+        - !Join [".",[!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+      ValidationMethod: 'DNS'
+      Tags:
+        - Key: Name
+          Value: !Join [".",[!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+  CFDistributionV3:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Origins:
+        - DomainName: !Sub '${ClientName}-${EnvironmentName}-media.s3.us-east-2.amazonaws.com'
+          Id: !Sub '${ClientName}-${EnvironmentName}-media'
+          S3OriginConfig:
+              OriginAccessIdentity: !Join ["/",['origin-access-identity/cloudfront',!Ref CFOAIMediaV3]]
+          OriginPath: '/uploads'
+        - DomainName: !Sub '${ClientName}-${EnvironmentName}-mediaassets.s3.us-east-2.amazonaws.com'
+          Id: !Sub '${ClientName}-${EnvironmentName}-mediaassets'
+          S3OriginConfig:
+            OriginAccessIdentity: !Join ["/",['origin-access-identity/cloudfront',!Ref CFOAIMediaAssetsV3]]
+        Enabled: 'true'
+        Aliases:
+        - !Sub 'cdn.${EnvironmentName}.${ExternalDomainNameBase}'
+        DefaultCacheBehavior:
+          AllowedMethods:
+          - GET
+          - HEAD
+          TargetOriginId: !Sub '${ClientName}-${EnvironmentName}-media'
+          ViewerProtocolPolicy: redirect-to-https
+          Compress: 'true'
+          CachePolicyId: !Ref CachePolicyId
+          OriginRequestPolicyId: !Ref OriginRequestPolicyId
+        CacheBehaviors:
+        - AllowedMethods: 
+          - GET
+          - HEAD
+          CachePolicyId: !Ref CachePolicyId
+          Compress: 'true'
+          OriginRequestPolicyId: !Ref OriginRequestPolicyId
+          PathPattern: 'profiles/*'
+          TargetOriginId: !Sub '${ClientName}-${EnvironmentName}-media'
+          TrustedKeyGroups: 
+            - !Ref CFTrustedKeyGroupV3
+          ViewerProtocolPolicy: redirect-to-https
+        - AllowedMethods: 
+          - GET
+          - HEAD
+          CachePolicyId: !Ref CachePolicyId
+          Compress: 'true'
+          OriginRequestPolicyId: !Ref OriginRequestPolicyId
+          PathPattern: 'assets/*'
+          TargetOriginId: !Sub '${ClientName}-${EnvironmentName}-mediaassets'
+          ViewerProtocolPolicy: redirect-to-https
+        PriceClass: PriceClass_100
+        ViewerCertificate:
+          AcmCertificateArn: !Ref CFCertificateArn
+          MinimumProtocolVersion: 'TLSv1.2_2021'
+          SslSupportMethod: 'sni-only'
+    DependsOn:
+      - CFOAIMediaV3
+      - CFOAIMediaAssetsV3
+      - CFTrustedKeyGroupV3
+  CFOAIMediaV3:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub '${ClientName}-${EnvironmentName}-media-oai'
+  CFOAIMediaAssetsV3:
+    Type: AWS::CloudFront::CloudFrontOriginAccessIdentity
+    Properties:
+      CloudFrontOriginAccessIdentityConfig:
+        Comment: !Sub '${ClientName}-${EnvironmentName}-mediaassets-oai'
+  CFTrustedKeyGroupV3:
+    Type: AWS::CloudFront::KeyGroup
+    Properties: 
+      KeyGroupConfig: 
+          Items: 
+            - !Ref CFPublicKeyObjectV3
+          Name: !Sub '${ClientName}-${EnvironmentName}-profiles'
+  CFPublicKeyObjectV3:
+    Type: AWS::CloudFront::PublicKey
+    Properties: 
+      PublicKeyConfig: 
+          CallerReference: !Sub '${ClientName}-${EnvironmentName}-profiles'
+          Name: !Sub '${ClientName}-${EnvironmentName}-profiles'
+          EncodedKey: !Sub "${CFPublicKey}"
+Outputs:
+  VPC:
+    Description: A reference to the created VPC
+    Value: !Ref VPC
+  PublicSubnets:
+    Description: A list of the public subnets
+    Value: !Ref PublicSubnet1
+  PrivateSubnets:
+    Description: A list of the private subnets
+    Value: !Ref PrivateSubnet1
+  PublicSubnet1:
+    Description: A reference to the public subnet in the 1st Availability Zone
+    Value: !Ref PublicSubnet1
+  PrivateSubnet1:
+    Description: A reference to the private subnet in the 1st Availability Zone
+    Value: !Ref PrivateSubnet1

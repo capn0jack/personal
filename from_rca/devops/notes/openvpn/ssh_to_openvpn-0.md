@@ -1,0 +1,1 @@
+ssh -i .\cmccaberecoverycoacom.pem openvpnas@10.0.1.15

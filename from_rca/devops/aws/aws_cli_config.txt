@@ -1,0 +1,8 @@
+aws configure
+
+aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 729507891944.dkr.ecr.us-east-2.amazonaws.com
+
+docker pull 729507891944.dkr.ecr.us-east-2.amazonaws.com/test:latest
+
+
+export AWS_SESSION_TOKEN=ZZZ

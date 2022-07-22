@@ -1,0 +1,6 @@
+After installing PowerShell (from snap), add this to /etc/shells:
+/snap/powershell/160/opt/powershell/pwsh
+
+And then add that same path as the shell for the user in /etc/passwd.
+
+sudo chsh -s /snap/powershell/160/opt/powershell/pwsh cmccabe

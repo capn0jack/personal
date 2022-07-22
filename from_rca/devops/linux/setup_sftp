@@ -1,0 +1,64 @@
+#set perms on the sftp data directory
+chown root:root /sftp_data
+chmod 755 /sftp_data
+
+#CREATING THE ADMIN USER
+
+#create a group for the so sftp user
+groupadd so-prod-sftp-users-admin
+groupadd so-prod-sftp
+useradd -g so-prod-sftp-users-admin -d / -s /sbin/nologin so-prod-sftp
+
+mkdir -p /sftp_data/so-prod-sftp
+chown -R root:root /sftp_data/so-prod-sftp
+chmod 755 /sftp_data/so-prod-sftp
+mkdir -p /sftp_data/so-prod-sftp/.ssh
+touch /sftp_data/so-prod-sftp/.ssh/authorized_keys
+chown -R so-prod-sftp:so-prod-sftp /sftp_data/so-prod-sftp/.ssh
+chmod -R 440 /sftp_data/so-prod-sftp/.ssh
+
+
+#EDIT /etc/ssh/sshd_config
+Match Group so-prod-sftp-users-admin
+ChrootDirectory /sftp_data/%u
+ForceCommand internal-sftp
+
+systemctl restart sshd
+
+
+#CREATING THE REGULAR USER
+
+#create a group for the regular sftp user
+groupadd so-prod-sftp-users-regular
+useradd -g so-prod-sftp-users-regular -d / -s /sbin/nologin CLT-prod-sftp
+
+mkdir -p /sftp_data/so-prod-sftp/CLT-prod-sftp/to_so
+mkdir -p /sftp_data/so-prod-sftp/CLT-prod-sftp/from_so
+chown -R root:root /sftp_data/so-prod-sftp/CLT-prod-sftp
+chmod -R 755 /sftp_data/so-prod-sftp/CLT-prod-sftp
+chown -R CLT-prod-sftp:root /sftp_data/so-prod-sftp/CLT-prod-sftp/to_so
+chown -R CLT-prod-sftp:root /sftp_data/so-prod-sftp/CLT-prod-sftp/from_so
+chmod -R 770 /sftp_data/so-prod-sftp/CLT-prod-sftp/to_so
+chmod -R 770 /sftp_data/so-prod-sftp/CLT-prod-sftp/from_so
+
+mkdir -p /home/CLT-prod-sftp/.ssh
+touch /home/CLT-prod-sftp/.ssh/authorized_keys
+chown -R CLT-prod-sftp:root /home/CLT-prod-sftp
+chmod -R 755 /home/CLT-prod-sftp
+chmod -R 700 /home/CLT-prod-sftp/.ssh
+chmod -R 600 /home/CLT-prod-sftp/.ssh/authorized_keys
+
+#EDIT /etc/ssh/sshd_config
+Match Group so-prod-sftp-users-regular
+ChrootDirectory /sftp_data/so-prod-sftp/%u
+ForceCommand internal-sftp
+AuthorizedKeysFile  /sftp_data/so-prod-sftp/%u/.ssh/authorized_keys
+
+systemctl restart sshd
+
+
+
+#have to figure out the key auth piece
+#sudo su - so-prod-sftp -c "keygen -t ed25519"
+
+

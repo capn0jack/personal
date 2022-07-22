@@ -1,0 +1,53 @@
+Description: |-
+
+  CREATE THIS STACK IN THE US-EAST-1 REGION!
+
+  This template just creates a certificate for CloudFront in the us-east-1 region.  You can't specify
+  a region in the CloudFormation template.  Since we're deploying stuff in us-east-2 and CloudFront has
+  to have its certificate in us-east-1, that's a problem.  So this stack should be run before the stack
+  that sets up the rest of the environment (currently ./vpc.yml).  It returns the ARN as an output.
+
+  Oh, and you can't do cross-region cross-stack references, so I can't even pull the ARN automatically.
+  
+Parameters:
+  USEAST1:
+    Description: Create this in the us-east-1 region.
+    Type: String
+    AllowedPattern: 'us-east-1'
+    ConstraintDescription: must be us-east-1.
+  EnvironmentName:
+    Description: The environment name (like dev, qa, prod, etc.)
+    Type: String
+    MinLength: '2'
+    MaxLength: '4'
+    AllowedPattern: '[a-z]*'
+    ConstraintDescription: must be at least 3 characters, must be no more than 4 characters, and must contain only lowercase letters.
+  ExternalDomainNameBase:
+    Description: The base external DNS domain name.
+    Type: String
+    Default: 'shoutout.com'
+  ExternalDomainHostedZoneID:
+    Type: AWS::Route53::HostedZone::Id
+    Description: The Hosted Zone for the Record Set
+Resources:
+  CFCertificate:
+    Type: AWS::CertificateManager::Certificate
+    Properties: 
+      DomainName: !Join [".",["*",!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+      DomainValidationOptions: 
+        - DomainName: !Join [".",["*",!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+          HostedZoneId: !Ref ExternalDomainHostedZoneID
+      SubjectAlternativeNames: 
+        - !Join [".",[!Ref EnvironmentName,!Ref ExternalDomainNameBase]]
+      ValidationMethod: 'DNS'
+      Tags:
+        - Key: Name
+          Value: !Sub 'CERT${EnvironmentName}.${ExternalDomainNameBase}'
+        - Key: env
+          Value: !Ref EnvironmentName
+        - Key: appdelivery
+          Value: true
+Outputs:
+  CFCertificateArn:
+    Description: The ARN of the certificate generated in us-east-1 for CloudFront.
+    Value: !Ref CFCertificate
