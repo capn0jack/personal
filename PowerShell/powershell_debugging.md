@@ -29,3 +29,5 @@ $error.removerange(0,10) #remove range (start and count)
 $error.clear() #clear it all
 
 
+$Error.InvocationInfo
+
