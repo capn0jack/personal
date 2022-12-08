@@ -1,0 +1,5 @@
+mysqldump -h tempdeletemerestore.cnkuf6vblsjp.us-east-2.rds.amazonaws.com -u caredfor -p --set-gtid-purged=OFF --column-statistics=0 cm_service > cm_service_backed_up_from_b
+ackup.sql
+
+#This will choke in PowerShell because of the <.
+mysql -h rca-caredfor.cnkuf6vblsjp.us-east-2.rds.amazonaws.com -u caredfor -p cm_service < cm_service_backed_up_from_backup.sql

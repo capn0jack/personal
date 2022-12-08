@@ -1,0 +1,6 @@
+#For an existing container image.
+aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 729507891944.dkr.ecr.us-east-2.amazonaws.com
+docker tag dokku/semaphore-demo-ruby-rails:latest 729507891944.dkr.ecr.us-east-2.amazonaws.com/dokku/semaphore-demo-ruby-rails:latest
+docker push 729507891944.dkr.ecr.us-east-2.amazonaws.com/dokku/semaphore-demo-ruby-rails:latest
+
+aws ecr get-login-password --region us-east-2 | docker login --username AWS --password-stdin 986346703137.dkr.ecr.us-east-2.amazonaws.com

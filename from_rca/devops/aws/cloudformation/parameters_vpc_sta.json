@@ -1,0 +1,34 @@
+[
+  {
+    "ParameterKey": "CFPublicKey",
+    "ParameterValue": "-----BEGIN PUBLIC KEY-----\nMIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA6jU0n8v0aYyI8kmtevxw\n9TZzBacSFZOvQKcG2yBWndoevgrFvWgBbM7yx7uj7Oe5NS6Y2TFqjoLbYK1SoOSL\nC8r+QEg7+tlH36KFFZnx9cacQzKBZHwMZIkbkYAILoqET05eELPichTVp44nz47t\n6E6Y8O2/ssLm1CtyxWUklkkBzPzxCfa3rxyq4m1uUSIVj/Jycfi9Cu6eUHhZxAlE\npUP3/kL/wE0Lq97AHD3nZNeNR0Do4H5RuPfH7hdjz9ET9IkaI38BltsNMAKSiImh\n0MUdgZHal1xCj/UdPJI1fphMq3n3RuzROlURB2JBz2OVEw+E6GDlsUBObHOfNizU\n9QIDAQAB\n-----END PUBLIC KEY-----\n"
+  }, 
+  {
+    "ParameterKey": "CFCertificateArn",
+    "ParameterValue": "arn:aws:acm:us-east-1:729507891944:certificate/386ec814-9652-4ebc-9804-90ce322779c5"
+  }, 
+  {
+    "ParameterKey": "DBPassword",
+    "ParameterValue": "x28Djn33lJ58LxGLekZX"
+  }, 
+  {
+    "ParameterKey": "EnvironmentName",
+    "ParameterValue": "sta"
+  }, 
+  {
+    "ParameterKey": "ExternalDomainHostedZoneID",
+    "ParameterValue": "Z08081191GRPL28VTGROD"
+  }, 
+  {
+    "ParameterKey": "HostnameBuilder",
+    "ParameterValue": "dokku-builder-3"
+  }, 
+  {
+    "ParameterKey": "HostnameTarget",
+    "ParameterValue": "dokku-target-3"
+  }, 
+  {
+    "ParameterKey": "SecondOctet",
+    "ParameterValue": "10"
+  }
+]

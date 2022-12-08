@@ -1,0 +1,5 @@
+#Show all the users:
+./sacli UserPropGet | grep {
+
+#This means they're disabled:
+"prop_deny": "true",

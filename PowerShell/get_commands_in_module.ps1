@@ -1,0 +1,1 @@
+Get-Command THE_MODULE_NAME

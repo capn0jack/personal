@@ -1,0 +1,16 @@
+---
+schemaVersion: "2.2"
+description: "Runs clamscan"
+mainSteps:
+- action: "aws:runShellScript"
+  name: "runShellScript"
+  inputs:
+    runCommand:
+    - |+
+      #!/bin/bash
+      apt install --only-upgrade clamav
+
+      freshclam
+
+      echo "==> Running clamscan"
+      ionice -c3 nice -n 19 /usr/bin/clamscan --infected --max-filesize=1M --recursive=yes --log=/var/log/clamav/clamscan.log --exclude-dir='^/boot|^/dev|^/proc|^/run|^/snap|^/sys|^/var/lib/amazon/ssm|^/var/lib/docker/overlay2|^/var/lib/docker/volumes|^/var/lib/fwupd/gnupg|^/var/lib/lxcfs/cgroup|/var/snap/lxd|^/var/spool/postfix' /

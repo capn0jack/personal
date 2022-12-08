@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+#Careful changing the next line.  The config_dokku_apps.ps1 script selects and then replaces it by line number.
+appName="REPLACEME"
+
+source "$PLUGIN_CORE_AVAILABLE_PATH/common/functions"
+
+trap 'dokku ps:stop $appName' 0
+
+echo `date` >> post_deploy.log
+
+echo 'Exporting Docker image...'
+dokku_log_info1 'Exporting Docker image...'
+docker save dokku/$appName:latest | gzip > $appName.tar.gz
+
+echo 'Copying Docker image to target node(s)...'
+dokku_log_info1 'Copying Docker image to target node(s)...'
+parallel-scp -t 0 -h TARGET_NODES --user dokku $appName.tar.gz /home/dokku/$appName/
+
+echo 'Importing Docker image on target node(s)...'
+dokku_log_info1 'Importing Docker image on target node(s)...'
+parallel-ssh -t 0 -h TARGET_NODES --user dokku docker load -i /home/dokku/$appName/$appName.tar.gz
+
+echo 'Dokku tags:deploy...'
+dokku_log_info1 'Dokku tags:deploy...'
+parallel-ssh -t 0 -h TARGET_NODES --user dokku dokku tags:deploy $appName latest
+
+echo 'Finished.'

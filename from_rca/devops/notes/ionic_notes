@@ -1,0 +1,14 @@
+in frontend app:
+ios_build_script_semaphore.sh
+ionic.config.json
+
+
+apparently the -g installs it globally
+npm install -g @ionic/cli
+
+
+doing "ionic login e-mail password" and tying to the admin account for now
+
+
+ionic config get -g tokens.user
+

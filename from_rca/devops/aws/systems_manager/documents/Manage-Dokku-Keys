@@ -1,0 +1,82 @@
+description: |-
+  # Manage Dokku Keys
+
+  Use this automation to create/delete a Linux user and update the associated SSH keys
+schemaVersion: '0.3'
+assumeRole: 'arn:aws:iam::729507891944:role/Automation-ManageDokkuKeys'
+parameters:
+  InstanceID:
+    type: String
+    description: Instance being targeted
+  Action:
+    type: String
+    description: 'Action to perform (Create, Update, Delete)'
+  KeyName:
+    type: String
+    description: Name of Dokku key
+  KeyValue:
+    type: String
+    description: Value of Dokku key (option when deleting)
+    default: ''
+mainSteps:
+  - name: IdentifyAction
+    action: 'aws:branch'
+    inputs:
+      Choices:
+        - NextStep: CreateKey
+          Variable: '{{Action}}'
+          StringEquals: Create
+        - NextStep: UpdateKey
+          Variable: '{{Action}}'
+          StringEquals: Update
+        - NextStep: SleepBeforeDestroying
+          Variable: '{{Action}}'
+          StringEquals: Delete
+  - name: CreateKey
+    action: 'aws:runCommand'
+    inputs:
+      DocumentName: AWS-RunShellScript
+      InstanceIds:
+        - '{{ InstanceID }}'
+      Parameters:
+        commands:
+          - 'echo "{{KeyValue}}" | dokku ssh-keys:add {{KeyName}}'
+    isEnd: true
+  - name: SleepBeforeDestroying
+    action: aws:sleep
+    nextStep: AssertRunningInstance
+    inputs:
+      Duration: PT1M
+  - name: AssertRunningInstance
+    action: aws:assertAwsResourceProperty
+    onFailure: Abort
+    nextStep: DeleteKey
+    inputs:
+      Service: ec2
+      Api: DescribeInstanceStatus
+      InstanceIds:
+        - '{{ InstanceID }}'
+      PropertySelector: "$.InstanceStatuses[0].InstanceState.Name"
+      DesiredValues:
+        - running
+  - name: DeleteKey
+    action: 'aws:runCommand'
+    inputs:
+      DocumentName: AWS-RunShellScript
+      InstanceIds:
+        - '{{ InstanceID }}'
+      Parameters:
+        commands:
+          - 'dokku ssh-keys:remove {{KeyName}}'
+    isEnd: true
+  - name: UpdateKey
+    action: 'aws:runCommand'
+    inputs:
+      DocumentName: AWS-RunShellScript
+      InstanceIds:
+        - '{{ InstanceID }}'
+      Parameters:
+        commands:
+          - 'dokku ssh-keys:remove {{KeyName}}'
+          - 'echo "{{KeyValue}}" | dokku ssh-keys:add {{KeyName}}'
+    isEnd: true

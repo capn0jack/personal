@@ -1,0 +1,6 @@
+git config --global http.postBuffer 157286400
+git config --global ssh.postBuffer 157286400
+
+git config --global user.email "ccmccabe@recoverycoa.com"
+git config --global user.name "cmccabe"
+

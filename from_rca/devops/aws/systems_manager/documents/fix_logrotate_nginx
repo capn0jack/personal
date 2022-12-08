@@ -1,0 +1,35 @@
+---
+schemaVersion: "2.2"
+description: "Fixes the borked Nginx Logrotate config.  Not intended to be used long-term."
+mainSteps:
+- action: "aws:runShellScript"
+  name: "runShellScript"
+  inputs:
+    runCommand:
+    - |+
+      #!/bin/bash
+      SCRIPT=$(cat <<SETVAR
+      /var/log/nginx/*.log {
+              daily
+              missingok
+              rotate 36500
+              compress
+              delaycompress
+              notifempty
+              create 0640 www-data adm
+              sharedscripts
+              prerotate
+                      if [ -d /etc/logrotate.d/httpd-prerotate ]; then run-parts /etc/logrotate.d/httpd-prerotate; fi
+              endscript
+              postrotate
+                      service nginx rotate
+              endscript
+      }
+      SETVAR
+      )
+      if [ -f /etc/logrotate.d/nginx ]; then
+        CONTENTS=$(grep "prerotate 36500" /etc/logrotate.d/nginx)
+        if [ ! -z "$CONTENTS" ]; then
+          echo "$SCRIPT" > /etc/logrotate.d/nginx
+        fi
+      fi

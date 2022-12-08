@@ -1,0 +1,5 @@
+Install-Module -Name AWS.Tools.Installer
+
+Install-AWSToolsModule AWS.Tools.EC2,AWS.Tools.S3,AWS.Tools.IdentityManagement,AWS.Tools.SecurityToken,aws.tools.cloudwatch,aws.tools.cloudwatchlogs,aws.tools.sqs,AWS.Tools.ECR,AWS.Tools.CloudFormation,AWS.Tools.CloudFront,AWS.Tools.SimpleSystemsManagement,AWS.Tools.Lambda -CleanUp -Scope AllUsers
+
+Get-AWSPowerShellVersion -ListServiceVersionInfo

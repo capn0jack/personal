@@ -1,0 +1,6 @@
+#Set up a new DB instance:
+create accounts for users
+create databases
+create account for app (cltenv) (login from anywhere) (only on app DBs)
+seed databases
+generate WEBHOOK_CLIENT_SECRET (just random 20-char alphanum; goes in laravel, assess, int, cm-service)

@@ -1,0 +1,29 @@
+#CLI:
+aws ecs put-account-setting-default \
+      --name awsvpcTrunking \
+      --value enabled \
+      --region us-east-1
+
+#PowerShell:
+Write-ECSAccountSettingDefault -Name awsvpcTrunking -Value enabled -Region us-east-1 -Force
+
+#And then to look at the instances with increased ENIs:
+aws ecs list-attributes \
+      --target-type container-instance \
+      --attribute-name ecs.awsvpc-trunk-id \
+      --cluster cluster_name \
+      --region us-east-1
+
+Get-ECSAttributeList -TargetType container-instance -AttributeName ecs.awsvpc-trunk-id -Region us-east-1
+
+#IDK, that stuff didn't actually enable it.  Did this:
+Get-ECSAccountSetting -name awsvpcTrunking -Region us-east-2 -ProfileName mccabec@gmail.com
+Write-ECSAccountSetting -Name awsvpcTrunking -Region us-east-2 -ProfileName mccabec@gmail.com -Value enabled
+
+
+
+And this (shell as ROOT):
+aws ecs put-account-setting --name awsvpcTrunking --value enabled --principal-arn arn:aws:iam::986346703137:role/aws-service-role/ecs.amazonaws.com/AWSServiceRoleForECS
+--region us-east-2
+aws ecs put-account-setting --name awsvpcTrunking --value enabled --region us-east-2
+aws ecs put-account-setting-default --name awsvpcTrunking --value enabled --region us-east-2
